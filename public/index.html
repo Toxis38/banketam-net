@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Главная | Банкетам.Нет</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <a href="/" class="logo">Банкетам.<span>Нет</span></a>
+            <nav class="nav" id="nav"></nav>
+            <button class="burger" id="burger" aria-label="Меню"><span></span><span></span><span></span></button>
+        </div>
+    </header>
+    <main class="main">
+        <div class="container">
+            <div class="hero">
+                <h1>Банкетам.Нет</h1>
+                <p>Бронирование помещений для проведения банкетов: зал, ресторан, летняя веранда, закрытая веранда</p>
+                
+                <div class="slider">
+                    <div class="slider-track">
+                        <div class="slide" style="background-image: url('https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=800&h=400&fit=crop')"></div>
+                        <div class="slide" style="background-image: url('https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=800&h=400&fit=crop')"></div>
+                        <div class="slide" style="background-image: url('https://images.unsplash.com/photo-1478146896981-b80fe463b330?w=800&h=400&fit=crop')"></div>
+                        <div class="slide" style="background-image: url('https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&h=400&fit=crop')"></div>
+                    </div>
+                    <button class="slider-btn prev" aria-label="Назад">‹</button>
+                    <button class="slider-btn next" aria-label="Вперёд">›</button>
+                    <div class="slider-dots"></div>
+                </div>
+
+                <div class="features">
+                    <div class="feature"><h3>Зал</h3><p class="aux-text">Просторный зал для больших компаний</p></div>
+                    <div class="feature"><h3>Ресторан</h3><p class="aux-text">Уютный ресторан с изысканной кухней</p></div>
+                    <div class="feature"><h3>Летняя веранда</h3><p class="aux-text">Открытое пространство на свежем воздухе</p></div>
+                    <div class="feature"><h3>Закрытая веранда</h3><p class="aux-text">Защищённая веранда в любую погоду</p></div>
+                </div>
+
+                <div id="hero-actions"></div>
+            </div>
+
+            <div class="form-card" style="margin-top: 24px;">
+                <h2>Варианты оплаты</h2>
+                <ul style="list-style: none; padding-left: 0;">
+                    <li style="margin-bottom: 8px;">✓ Предоплата по QR-коду</li>
+                    <li style="margin-bottom: 8px;">✓ Оплата картой МИР</li>
+                    <li>✓ Постоплата в офисе организации</li>
+                </ul>
+            </div>
+        </div>
+    </main>
+    <footer class="footer">
+        <div class="container">
+            <p><strong>Банкетам.Нет</strong> — бронирование помещений для банкетов</p>
+            <p>Адрес: г. Москва, ул. Большая Ордынка, д. 15</p>
+            <p>Телефон: <a href="tel:+74951234567">+7 (495) 123-45-67</a></p>
+            <p class="copyright">&copy; 2026 Банкетам.Нет. Все права защищены.</p>
+        </div>
+    </footer>
+    <script src="/js/main.js"></script>
+    <script>
+        checkAuth().then(auth => {
+            updateNav(auth);
+            const el = document.getElementById('hero-actions');
+            if (auth.isAdmin) {
+                el.innerHTML = '<a href="/admin.html" class="btn">Панель администратора</a>';
+            } else if (auth.loggedIn) {
+                el.innerHTML = '<a href="/application.html" class="btn">Оформить заявку</a>';
+            } else {
+                el.innerHTML = '<a href="/register.html" class="btn">Зарегистрироваться</a><div class="link-center"><a href="/login.html">Уже есть аккаунт? Войти</a></div>';
+            }
+        });
+    </script>
+</body>
+</html>

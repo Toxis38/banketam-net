@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Вход | Банкетам.Нет</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <a href="/" class="logo">Банкетам.<span>Нет</span></a>
+            <nav class="nav" id="nav"></nav>
+            <button class="burger" id="burger" aria-label="Меню"><span></span><span></span><span></span></button>
+        </div>
+    </header>
+    <main class="main">
+        <div class="container">
+            <h1>Вход</h1>
+            <div class="form-card">
+                <div id="alert"></div>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="login">Логин</label>
+                        <input type="text" id="login" name="login" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Пароль</label>
+                        <input type="password" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn">Войти</button>
+                </form>
+                <div class="link-center">
+                    <a href="/register.html">Ещё не зарегистрированы? Регистрация</a>
+                </div>
+            </div>
+        </div>
+    </main>
+    <footer class="footer">
+        <div class="container">
+            <p><strong>Банкетам.Нет</strong></p>
+            <p class="copyright">&copy; 2026</p>
+        </div>
+    </footer>
+    <script src="/js/main.js"></script>
+    <script>
+        checkAuth().then(auth => {
+            if (auth.isAdmin) location.href = '/admin.html';
+            else if (auth.loggedIn) location.href = '/cabinet.html';
+            updateNav(auth);
+        });
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const login = document.getElementById('login').value.trim();
+            const password = document.getElementById('password').value;
+            const alertEl = document.getElementById('alert');
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ login, password })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    location.href = data.redirect;
+                } else {
+                    alertEl.innerHTML = `<div class="alert alert-error">${data.error || 'Ошибка'}</div>`;
+                }
+            } catch {
+                alertEl.innerHTML = '<div class="alert alert-error">Ошибка соединения</div>';
+            }
+        });
+    </script>
+</body>
+</html>
