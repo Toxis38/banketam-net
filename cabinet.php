@@ -62,10 +62,10 @@ require_once __DIR__ . '/includes/header.php';
 
 <div class="slider" style="margin-bottom: 24px;">
     <div class="slider-track">
-        <div class="slide" style="background-image: url('/assets/images/image%20(1).jpeg')"></div>
-        <div class="slide" style="background-image: url('/assets/images/image%20(2).jpeg')"></div>
-        <div class="slide" style="background-image: url('/assets/images/image%20(3).jpeg')"></div>
-        <div class="slide" style="background-image: url('/assets/images/image%20(4).jpeg')"></div>
+        <div class="slide" style="background-image: url('https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=800&h=400&fit=crop')"></div>
+        <div class="slide" style="background-image: url('https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?w=800&h=400&fit=crop')"></div>
+        <div class="slide" style="background-image: url('https://images.unsplash.com/photo-1478146896981-b80fe463b330?w=800&h=400&fit=crop')"></div>
+        <div class="slide" style="background-image: url('https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&h=400&fit=crop')"></div>
     </div>
     <button class="slider-btn prev" aria-label="Назад">‹</button>
     <button class="slider-btn next" aria-label="Вперёд">›</button>
