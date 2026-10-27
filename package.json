@@ -1,0 +1,17 @@
+{
+  "name": "banketam-net",
+  "version": "1.0.0",
+  "description": "Банкетам.Нет — система бронирования помещений для банкетов (Node.js + Express)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "Toxis38",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
+    "express": "^4.21.2",
+    "express-session": "^1.18.1"
+  }
+}
