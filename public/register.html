@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Регистрация | Банкетам.Нет</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <a href="/" class="logo">Банкетам.<span>Нет</span></a>
+            <nav class="nav" id="nav"></nav>
+            <button class="burger" id="burger" aria-label="Меню"><span></span><span></span><span></span></button>
+        </div>
+    </header>
+    <main class="main">
+        <div class="container">
+            <h1>Регистрация</h1>
+            <div class="form-card">
+                <div id="alert"></div>
+                <form id="register-form">
+                    <div class="form-group">
+                        <label for="login">Логин</label>
+                        <input type="text" id="login" name="login" required placeholder="минимум 6 латинских букв/цифр">
+                        <span class="error" id="err-login"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Пароль</label>
+                        <input type="password" id="password" name="password" required placeholder="минимум 8 символов">
+                        <span class="error" id="err-password"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="password2">Повторите пароль</label>
+                        <input type="password" id="password2" name="password2" required>
+                        <span class="error" id="err-password2"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="full_name">ФИО</label>
+                        <input type="text" id="full_name" name="full_name" required>
+                        <span class="error" id="err-full_name"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Телефон</label>
+                        <input type="tel" id="phone" name="phone" required placeholder="+7 (999) 123-45-67">
+                        <span class="error" id="err-phone"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="email">E-mail</label>
+                        <input type="email" id="email" name="email" required>
+                        <span class="error" id="err-email"></span>
+                    </div>
+                    <button type="submit" class="btn">Зарегистрироваться</button>
+                </form>
+                <div class="link-center">
+                    <a href="/login.html">Уже есть аккаунт? Войти</a>
+                </div>
+            </div>
+        </div>
+    </main>
+    <footer class="footer">
+        <div class="container">
+            <p><strong>Банкетам.Нет</strong></p>
+            <p class="copyright">&copy; 2026</p>
+        </div>
+    </footer>
+    <script src="/js/main.js"></script>
+    <script>
+        checkAuth().then(auth => {
+            if (auth.isAdmin) location.href = '/admin.html';
+            else if (auth.loggedIn) location.href = '/cabinet.html';
+            updateNav(auth);
+        });
+
+        document.getElementById('register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const alertEl = document.getElementById('alert');
+            document.querySelectorAll('.error').forEach(el => el.textContent = '');
+            document.querySelectorAll('input').forEach(el => el.classList.remove('error-input'));
+
+            const data = {
+                login: document.getElementById('login').value.trim(),
+                password: document.getElementById('password').value,
+                password2: document.getElementById('password2').value,
+                full_name: document.getElementById('full_name').value.trim(),
+                phone: document.getElementById('phone').value.trim(),
+                email: document.getElementById('email').value.trim()
+            };
+
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alertEl.innerHTML = '<div class="alert alert-success">Регистрация успешна! Перенаправляем на вход...</div>';
+                    setTimeout(() => location.href = '/login.html', 1500);
+                } else if (result.errors) {
+                    for (const [field, msg] of Object.entries(result.errors)) {
+                        const errEl = document.getElementById('err-' + field);
+                        const inputEl = document.getElementById(field);
+                        if (errEl) errEl.textContent = msg;
+                        if (inputEl) inputEl.classList.add('error-input');
+                    }
+                } else {
+                    alertEl.innerHTML = `<div class="alert alert-error">${result.error || 'Ошибка'}</div>`;
+                }
+            } catch {
+                alertEl.innerHTML = '<div class="alert alert-error">Ошибка соединения</div>';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Занятость помещений | Банкетам.Нет</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .occ-date { background: var(--white); border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow); }
+        .occ-date h3 { margin-bottom: 10px; }
+        .room-badge { display: inline-block; padding: 6px 12px; border-radius: 20px; font-size: 13px; margin: 4px 4px 4px 0; }
+        .room-busy { background: #f8d7da; color: #721c24; }
+        .room-free { background: #d4edda; color: #155724; }
+        .legend { display: flex; gap: 16px; margin: 16px 0; font-size: 13px; }
+        .legend span { display: flex; align-items: center; gap: 6px; }
+        .legend i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <a href="/" class="logo">Банкетам.<span>Нет</span></a>
+            <nav class="nav" id="nav"></nav>
+            <button class="burger" id="burger" aria-label="Меню"><span></span><span></span><span></span></button>
+        </div>
+    </header>
+    <main class="main">
+        <div class="container">
+            <h1>Занятость помещений</h1>
+            <p class="aux-text" style="text-align:center;margin-bottom:16px;">Гости могут смотреть, какие помещения заняты. Бронирование доступно только зарегистрированным пользователям.</p>
+
+            <div class="form-card">
+                <div class="form-group">
+                    <label for="filter-date">Фильтр по дате (необязательно)</label>
+                    <input type="text" id="filter-date" placeholder="дд.мм.гггг" maxlength="10">
+                </div>
+                <button class="btn btn-secondary" onclick="loadOccupancy()">Показать</button>
+            </div>
+
+            <div class="legend">
+                <span><i style="background:#f8d7da;"></i> Занято</span>
+                <span><i style="background:#d4edda;"></i> Свободно</span>
+            </div>
+
+            <div id="occupancy-list"></div>
+
+            <div id="guest-cta" style="margin-top:24px;"></div>
+        </div>
+    </main>
+    <footer class="footer">
+        <div class="container">
+            <p><strong>Банкетам.Нет</strong></p>
+            <p class="copyright">&copy; 2026</p>
+        </div>
+    </footer>
+    <script src="/js/main.js"></script>
+    <script>
+        let isLoggedIn = false;
+
+        checkAuth().then(auth => {
+            updateNav(auth);
+            isLoggedIn = auth.loggedIn && !auth.isAdmin;
+            const cta = document.getElementById('guest-cta');
+            if (isLoggedIn) {
+                cta.innerHTML = '<a href="/application.html" class="btn">Оформить бронь</a>';
+            } else if (!auth.isAdmin) {
+                cta.innerHTML = `<div class="form-card" style="text-align:center;">
+                    <p>Чтобы забронировать помещение, нужно зарегистрироваться</p>
+                    <a href="/register.html" class="btn">Регистрация</a>
+                    <div class="link-center"><a href="/login.html">Уже есть аккаунт? Войти</a></div>
+                </div>`;
+            }
+            loadOccupancy();
+        });
+
+        document.getElementById('filter-date').addEventListener('input', function(e) {
+            let v = e.target.value.replace(/\D/g, '');
+            if (v.length > 8) v = v.slice(0, 8);
+            if (v.length >= 5) v = v.slice(0, 2) + '.' + v.slice(2, 4) + '.' + v.slice(4);
+            else if (v.length >= 3) v = v.slice(0, 2) + '.' + v.slice(2);
+            e.target.value = v;
+        });
+
+        async function loadOccupancy() {
+            const date = document.getElementById('filter-date').value.trim();
+            const params = date ? '?date=' + encodeURIComponent(date) : '';
+            const res = await fetch('/api/occupancy' + params);
+            const data = await res.json();
+            const list = document.getElementById('occupancy-list');
+            const rooms = data.rooms || [];
+            const occ = data.occupancy || {};
+
+            const dates = Object.keys(occ).sort((a, b) => {
+                const [d1,m1,y1] = a.split('.').map(Number);
+                const [d2,m2,y2] = b.split('.').map(Number);
+                return new Date(y1,m1-1,d1) - new Date(y2,m2-1,d2);
+            });
+
+            if (dates.length === 0) {
+                list.innerHTML = '<div class="alert alert-info">На выбранную дату (или в ближайшее время) все помещения свободны</div>';
+                // Show all rooms as free for the filtered date if provided
+                if (date) {
+                    list.innerHTML += `<div class="occ-date"><h3>${date}</h3>` +
+                        rooms.map(r => `<span class="room-badge room-free">${r} — свободно</span>`).join('') +
+                        `</div>`;
+                }
+                return;
+            }
+
+            list.innerHTML = dates.map(dt => {
+                const busyRooms = occ[dt].map(x => x.room_type);
+                return `<div class="occ-date">
+                    <h3>${dt}</h3>
+                    ${rooms.map(r => {
+                        const busy = busyRooms.includes(r);
+                        return `<span class="room-badge ${busy ? 'room-busy' : 'room-free'}">${r} — ${busy ? 'занято' : 'свободно'}</span>`;
+                    }).join('')}
+                </div>`;
+            }).join('');
+        }
+    </script>
+</body>
+</html>

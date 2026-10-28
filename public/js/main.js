@@ -70,6 +70,7 @@ function updateNav(auth) {
     const nav = document.getElementById('nav');
     if (!nav) return;
     let html = '<a href="/">Главная</a>';
+    html += '<a href="/occupancy.html">Занятость</a>';
     if (auth.isAdmin) {
         html += '<a href="/admin.html">Панель администратора</a><a href="#" id="logout-btn">Выход</a>';
     } else if (auth.loggedIn) {

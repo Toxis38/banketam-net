@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Личный кабинет | Банкетам.Нет</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <a href="/" class="logo">Банкетам.<span>Нет</span></a>
+            <nav class="nav" id="nav"></nav>
+            <button class="burger" id="burger" aria-label="Меню"><span></span><span></span><span></span></button>
+        </div>
+    </header>
+    <main class="main">
+        <div class="container">
+            <h1>Личный кабинет</h1>
+            <div id="user-info" class="form-card" style="margin-bottom:16px;"></div>
+            <div style="margin-bottom:16px;">
+                <a href="/application.html" class="btn">Новая заявка</a>
+            </div>
+            <h2>Мои заявки</h2>
+            <div id="apps-list"></div>
+        </div>
+    </main>
+    <footer class="footer">
+        <div class="container">
+            <p><strong>Банкетам.Нет</strong></p>
+            <p class="copyright">&copy; 2026</p>
+        </div>
+    </footer>
+    <script src="/js/main.js"></script>
+    <script>
+        let currentUser = null;
+
+        checkAuth().then(auth => {
+            if (!auth.loggedIn || auth.isAdmin) {
+                location.href = auth.isAdmin ? '/admin.html' : '/login.html';
+                return;
+            }
+            currentUser = auth.user;
+            updateNav(auth);
+            document.getElementById('user-info').innerHTML = `
+                <p><strong>${auth.user.full_name}</strong></p>
+                <p class="aux-text">Логин: ${auth.user.login} · ${auth.user.phone} · ${auth.user.email}</p>
+            `;
+            loadApps();
+        });
+
+        async function loadApps() {
+            const res = await fetch('/api/applications/my');
+            const data = await res.json();
+            const list = document.getElementById('apps-list');
+            if (!data.applications || data.applications.length === 0) {
+                list.innerHTML = '<div class="alert alert-info">У вас пока нет заявок. <a href="/application.html">Создать первую</a></div>';
+                return;
+            }
+            list.innerHTML = data.applications.map(a => {
+                const statusClass = a.status === 'Новая' ? 'status-new' : a.status === 'Банкет назначен' ? 'status-assigned' : 'status-completed';
+                const services = (a.extra_services_names || []).length
+                    ? `<p class="aux-text">Доп. услуги: ${a.extra_services_names.join(', ')}</p>` : '';
+                const reviewBlock = a.status !== 'Новая'
+                    ? (a.review_text
+                        ? `<p class="aux-text" style="margin-top:8px;"><em>Ваш отзыв:</em> ${a.review_text}</p>`
+                        : `<div style="margin-top:10px;" id="review-box-${a.id}">
+                            <textarea id="review-${a.id}" rows="2" placeholder="Оставьте отзыв..." style="width:100%;padding:8px;border:2px solid var(--peach);border-radius:8px;font-family:Oswald,sans-serif;"></textarea>
+                            <button class="btn btn-secondary" style="margin-top:6px;" onclick="sendReview(${a.id})">Отправить отзыв</button>
+                           </div>`)
+                    : '';
+                return `
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <strong>Заявка #${a.id}</strong>
+                        <span class="status ${statusClass}">${a.status}</span>
+                    </div>
+                    <p>Помещение: <strong>${a.room_type}</strong></p>
+                    <p>Дата банкета: <strong>${a.banquet_date}</strong></p>
+                    <p>Оплата: ${a.payment_method}</p>
+                    ${a.guests_count ? `<p>Гостей: ${a.guests_count}</p>` : ''}
+                    ${services}
+                    ${a.comment ? `<p class="aux-text">Комментарий: ${a.comment}</p>` : ''}
+                    <p class="aux-text">Создана: ${new Date(a.created_at).toLocaleString('ru-RU')}</p>
+                    ${reviewBlock}
+                </div>`;
+            }).join('');
+        }
+
+        async function sendReview(appId) {
+            const text = document.getElementById('review-' + appId).value.trim();
+            if (!text) return alert('Введите текст отзыва');
+            const res = await fetch('/api/reviews', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ application_id: appId, review_text: text })
+            });
+            const data = await res.json();
+            if (data.success) {
+                loadApps();
+            } else {
+                alert(data.error || 'Ошибка');
+            }
+        }
+    </script>
+</body>
+</html>

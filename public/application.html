@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Новая заявка | Банкетам.Нет</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .services-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+        .service-item { display: flex; align-items: center; gap: 8px; background: var(--cream); padding: 10px; border-radius: 8px; border: 2px solid var(--peach); cursor: pointer; transition: border-color 0.2s; }
+        .service-item:has(input:checked) { border-color: var(--gold); background: #fff8e7; }
+        .service-item input { width: auto; margin: 0; }
+        .service-item label { margin: 0; cursor: pointer; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <a href="/" class="logo">Банкетам.<span>Нет</span></a>
+            <nav class="nav" id="nav"></nav>
+            <button class="burger" id="burger" aria-label="Меню"><span></span><span></span><span></span></button>
+        </div>
+    </header>
+    <main class="main">
+        <div class="container">
+            <h1>Новая заявка</h1>
+            <div class="form-card">
+                <div id="alert"></div>
+                <form id="app-form">
+                    <div class="form-group">
+                        <label for="room_type">Помещение</label>
+                        <select id="room_type" name="room_type" required>
+                            <option value="">— выберите —</option>
+                            <option value="зал">Зал</option>
+                            <option value="ресторан">Ресторан</option>
+                            <option value="летняя веранда">Летняя веранда</option>
+                            <option value="закрытая веранда">Закрытая веранда</option>
+                        </select>
+                        <span class="error" id="err-room_type"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="banquet_date">Дата банкета (ДД.ММ.ГГГГ)</label>
+                        <input type="text" id="banquet_date" name="banquet_date" required placeholder="дд.мм.гггг" maxlength="10">
+                        <span class="error" id="err-banquet_date"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="payment_method">Способ оплаты</label>
+                        <select id="payment_method" name="payment_method" required>
+                            <option value="">— выберите —</option>
+                            <option value="Предоплата по QR-коду">Предоплата по QR-коду</option>
+                            <option value="Оплата картой МИР">Оплата картой МИР</option>
+                            <option value="Постоплата в офисе организации">Постоплата в офисе организации</option>
+                        </select>
+                        <span class="error" id="err-payment_method"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="guests_count">Количество гостей (необязательно)</label>
+                        <input type="number" id="guests_count" name="guests_count" min="1" max="500" placeholder="например 50">
+                    </div>
+                    <div class="form-group">
+                        <label>Дополнительные услуги</label>
+                        <div class="services-grid" id="services-list">
+                            <!-- filled by JS -->
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="comment">Комментарий (необязательно)</label>
+                        <textarea id="comment" name="comment" rows="3" placeholder="Особые пожелания..."></textarea>
+                    </div>
+                    <button type="submit" class="btn">Отправить заявку</button>
+                </form>
+                <div class="link-center">
+                    <a href="/cabinet.html">← Вернуться в кабинет</a>
+                </div>
+            </div>
+        </div>
+    </main>
+    <footer class="footer">
+        <div class="container">
+            <p><strong>Банкетам.Нет</strong></p>
+            <p class="copyright">&copy; 2026</p>
+        </div>
+    </footer>
+    <script src="/js/main.js"></script>
+    <script>
+        checkAuth().then(auth => {
+            if (!auth.loggedIn || auth.isAdmin) {
+                location.href = auth.isAdmin ? '/admin.html' : '/login.html';
+                return;
+            }
+            updateNav(auth);
+            loadServices();
+        });
+
+        async function loadServices() {
+            const res = await fetch('/api/services');
+            const data = await res.json();
+            const container = document.getElementById('services-list');
+            container.innerHTML = data.services.map(s => `
+                <div class="service-item">
+                    <input type="checkbox" id="svc-${s.id}" name="extra_services" value="${s.id}">
+                    <label for="svc-${s.id}">${s.name}</label>
+                </div>
+            `).join('');
+        }
+
+        // Date mask
+        document.getElementById('banquet_date').addEventListener('input', function(e) {
+            let v = e.target.value.replace(/\D/g, '');
+            if (v.length > 8) v = v.slice(0, 8);
+            if (v.length >= 5) v = v.slice(0, 2) + '.' + v.slice(2, 4) + '.' + v.slice(4);
+            else if (v.length >= 3) v = v.slice(0, 2) + '.' + v.slice(2);
+            e.target.value = v;
+        });
+
+        document.getElementById('app-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const alertEl = document.getElementById('alert');
+            document.querySelectorAll('.error').forEach(el => el.textContent = '');
+            document.querySelectorAll('select, input').forEach(el => el.classList.remove('error-input'));
+
+            const services = Array.from(document.querySelectorAll('input[name="extra_services"]:checked')).map(el => el.value);
+
+            const payload = {
+                room_type: document.getElementById('room_type').value,
+                banquet_date: document.getElementById('banquet_date').value.trim(),
+                payment_method: document.getElementById('payment_method').value,
+                guests_count: document.getElementById('guests_count').value,
+                extra_services: services,
+                comment: document.getElementById('comment').value.trim()
+            };
+
+            try {
+                const res = await fetch('/api/applications', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alertEl.innerHTML = '<div class="alert alert-success">Заявка успешно создана! Перенаправляем...</div>';
+                    setTimeout(() => location.href = '/cabinet.html', 1500);
+                } else if (data.errors) {
+                    for (const [field, msg] of Object.entries(data.errors)) {
+                        const errEl = document.getElementById('err-' + field);
+                        const inputEl = document.getElementById(field);
+                        if (errEl) errEl.textContent = msg;
+                        if (inputEl) inputEl.classList.add('error-input');
+                    }
+                } else {
+                    alertEl.innerHTML = `<div class="alert alert-error">${data.error || 'Ошибка'}</div>`;
+                }
+            } catch {
+                alertEl.innerHTML = '<div class="alert alert-error">Ошибка соединения</div>';
+            }
+        });
+    </script>
+</body>
+</html>

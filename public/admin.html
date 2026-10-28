@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Панель администратора | Банкетам.Нет</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <a href="/" class="logo">Банкетам.<span>Нет</span></a>
+            <nav class="nav" id="nav"></nav>
+            <button class="burger" id="burger" aria-label="Меню"><span></span><span></span><span></span></button>
+        </div>
+    </header>
+    <main class="main">
+        <div class="container">
+            <h1>Панель администратора</h1>
+            <div class="filters">
+                <select id="filter-status">
+                    <option value="">Все статусы</option>
+                    <option value="Новая">Новая</option>
+                    <option value="Банкет назначен">Банкет назначен</option>
+                    <option value="Банкет завершен">Банкет завершен</option>
+                </select>
+                <select id="filter-sort">
+                    <option value="created_at">По дате создания</option>
+                    <option value="banquet_date">По дате банкета</option>
+                    <option value="id">По номеру</option>
+                    <option value="status">По статусу</option>
+                    <option value="room_type">По помещению</option>
+                </select>
+                <select id="filter-order">
+                    <option value="DESC">Сначала новые</option>
+                    <option value="ASC">Сначала старые</option>
+                </select>
+            </div>
+            <div id="apps-list"></div>
+            <div class="pagination" id="pagination"></div>
+        </div>
+    </main>
+    <footer class="footer">
+        <div class="container">
+            <p><strong>Банкетам.Нет</strong> — Админ-панель</p>
+            <p class="copyright">&copy; 2026</p>
+        </div>
+    </footer>
+    <script src="/js/main.js"></script>
+    <script>
+        let currentPage = 1;
+
+        checkAuth().then(auth => {
+            if (!auth.isAdmin) {
+                location.href = '/login.html';
+                return;
+            }
+            updateNav(auth);
+            loadApps();
+        });
+
+        document.getElementById('filter-status').addEventListener('change', () => { currentPage = 1; loadApps(); });
+        document.getElementById('filter-sort').addEventListener('change', () => { currentPage = 1; loadApps(); });
+        document.getElementById('filter-order').addEventListener('change', () => { currentPage = 1; loadApps(); });
+
+        async function loadApps() {
+            const status = document.getElementById('filter-status').value;
+            const sort = document.getElementById('filter-sort').value;
+            const order = document.getElementById('filter-order').value;
+            const params = new URLSearchParams({ page: currentPage, sort, order });
+            if (status) params.set('status', status);
+
+            const res = await fetch('/api/admin/applications?' + params);
+            const data = await res.json();
+            const list = document.getElementById('apps-list');
+
+            if (!data.applications || data.applications.length === 0) {
+                list.innerHTML = '<div class="alert alert-info">Заявок не найдено</div>';
+                document.getElementById('pagination').innerHTML = '';
+                return;
+            }
+
+            list.innerHTML = data.applications.map(a => {
+                const statusClass = a.status === 'Новая' ? 'status-new' : a.status === 'Банкет назначен' ? 'status-assigned' : 'status-completed';
+                const services = (a.extra_services_names || []).length
+                    ? `<p class="aux-text">Доп. услуги: ${a.extra_services_names.join(', ')}</p>` : '';
+                return `
+                <div class="card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                        <strong>Заявка #${a.id}</strong>
+                        <span class="status ${statusClass}">${a.status}</span>
+                    </div>
+                    <p><strong>${a.full_name}</strong> (${a.login})</p>
+                    <p class="aux-text">${a.phone} · ${a.email}</p>
+                    <p>Помещение: <strong>${a.room_type}</strong></p>
+                    <p>Дата банкета: <strong>${a.banquet_date}</strong></p>
+                    <p>Оплата: ${a.payment_method}</p>
+                    ${a.guests_count ? `<p>Гостей: ${a.guests_count}</p>` : ''}
+                    ${services}
+                    ${a.comment ? `<p class="aux-text">Комментарий: ${a.comment}</p>` : ''}
+                    <p class="aux-text">Создана: ${new Date(a.created_at).toLocaleString('ru-RU')}</p>
+                    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                        ${a.status !== 'Банкет назначен' ? `<button class="btn btn-secondary" style="width:auto;padding:8px 14px;font-size:13px;" onclick="setStatus(${a.id},'Банкет назначен')">Назначить</button>` : ''}
+                        ${a.status !== 'Банкет завершен' ? `<button class="btn" style="width:auto;padding:8px 14px;font-size:13px;" onclick="setStatus(${a.id},'Банкет завершен')">Завершить</button>` : ''}
+                        ${a.status !== 'Новая' ? `<button class="btn" style="width:auto;padding:8px 14px;font-size:13px;background:#666;" onclick="setStatus(${a.id},'Новая')">Вернуть в Новая</button>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+
+            // Pagination
+            const pag = document.getElementById('pagination');
+            let html = '';
+            for (let i = 1; i <= data.totalPages; i++) {
+                html += `<a class="${i === data.page ? 'active' : ''}" onclick="goPage(${i})">${i}</a>`;
+            }
+            pag.innerHTML = html;
+        }
+
+        function goPage(p) {
+            currentPage = p;
+            loadApps();
+            window.scrollTo(0, 0);
+        }
+
+        async function setStatus(id, status) {
+            if (!confirm(`Изменить статус заявки #${id} на «${status}»?`)) return;
+            const res = await fetch(`/api/admin/applications/${id}/status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status })
+            });
+            const data = await res.json();
+            if (data.success) {
+                loadApps();
+            } else {
+                alert(data.error || 'Ошибка');
+            }
+        }
+    </script>
+</body>
+</html>

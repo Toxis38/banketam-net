@@ -41,6 +41,19 @@ app.use(express.static(path.join(__dirname, 'public')));
 const ADMIN_LOGIN = 'Admin26';
 const ADMIN_PASSWORD = 'Demo20';
 
+const ROOMS = ['зал', 'ресторан', 'летняя веранда', 'закрытая веранда'];
+const PAYMENTS = ['Предоплата по QR-коду', 'Оплата картой МИР', 'Постоплата в офисе организации'];
+const EXTRA_SERVICES = [
+  { id: 'host', name: 'Ведущий' },
+  { id: 'chocolate_fountain', name: 'Шоколадный фонтан' },
+  { id: 'photographer', name: 'Фотограф' },
+  { id: 'music', name: 'Живая музыка / DJ' },
+  { id: 'decor', name: 'Декор и оформление' },
+  { id: 'cake', name: 'Торт на заказ' },
+  { id: 'fireworks', name: 'Фейерверк' },
+  { id: 'animator', name: 'Аниматор для детей' }
+];
+
 function requireAuth(req, res, next) {
   if (!req.session.userId && !req.session.isAdmin) {
     return res.status(401).json({ error: 'Требуется авторизация' });
@@ -70,7 +83,7 @@ app.post('/api/register', async (req, res) => {
     if (password !== password2) errors.password2 = 'Пароли не совпадают';
     if (!full_name) errors.full_name = 'Введите ФИО';
     if (!phone) errors.phone = 'Введите телефон';
-    else if (!/^[\d\s\-\+\(\)]{10,}$/.test(phone)) errors.phone = 'Некорректный номер телефона';
+    else if (!/[\d\s\-\+\(\)]{10,}/.test(phone)) errors.phone = 'Некорректный номер телефона';
     if (!email) errors.email = 'Введите e-mail';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Некорректный e-mail';
 
@@ -139,16 +152,48 @@ app.get('/api/me', (req, res) => {
   });
 });
 
-// Create application
+// Public: list of available extra services
+app.get('/api/services', (req, res) => {
+  res.json({ services: EXTRA_SERVICES });
+});
+
+// Public: occupancy (for guests — can view, cannot book)
+app.get('/api/occupancy', (req, res) => {
+  const date = req.query.date || '';
+  // Return all active bookings (Новая + Банкет назначен)
+  let list = db.applications
+    .filter(a => a.status === 'Новая' || a.status === 'Банкет назначен')
+    .map(a => ({
+      room_type: a.room_type,
+      banquet_date: a.banquet_date,
+      status: a.status
+    }));
+
+  if (date && /^\d{2}\.\d{2}\.\d{4}$/.test(date)) {
+    list = list.filter(a => a.banquet_date === date);
+  }
+
+  // Group by date
+  const byDate = {};
+  list.forEach(item => {
+    if (!byDate[item.banquet_date]) byDate[item.banquet_date] = [];
+    byDate[item.banquet_date].push({
+      room_type: item.room_type,
+      status: item.status
+    });
+  });
+
+  res.json({ occupancy: byDate, rooms: ROOMS });
+});
+
+// Create application (only registered users)
 app.post('/api/applications', requireAuth, (req, res) => {
   if (req.session.isAdmin) return res.status(403).json({ error: 'Администратор не может создавать заявки' });
 
-  const { room_type, banquet_date, payment_method } = req.body;
-  const rooms = ['зал', 'ресторан', 'летняя веранда', 'закрытая веранда'];
-  const payments = ['Предоплата по QR-коду', 'Оплата картой МИР', 'Постоплата в офисе организации'];
+  const { room_type, banquet_date, payment_method, extra_services, guests_count, comment } = req.body;
   const errors = {};
 
-  if (!room_type || !rooms.includes(room_type)) errors.room_type = 'Выберите помещение';
+  if (!room_type || !ROOMS.includes(room_type)) errors.room_type = 'Выберите помещение';
   if (!banquet_date) errors.banquet_date = 'Укажите дату';
   else if (!/^\d{2}\.\d{2}\.\d{4}$/.test(banquet_date)) errors.banquet_date = 'Дата в формате ДД.ММ.ГГГГ';
   else {
@@ -156,16 +201,43 @@ app.post('/api/applications', requireAuth, (req, res) => {
     const date = new Date(y, m - 1, d);
     if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) {
       errors.banquet_date = 'Некорректная дата';
+    } else {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (date < today) errors.banquet_date = 'Дата не может быть в прошлом';
     }
   }
-  if (!payment_method || !payments.includes(payment_method)) errors.payment_method = 'Выберите способ оплаты';
+  if (!payment_method || !PAYMENTS.includes(payment_method)) errors.payment_method = 'Выберите способ оплаты';
+
+  // Check if room already booked on this date
+  if (!errors.banquet_date && !errors.room_type) {
+    const conflict = db.applications.find(a =>
+      a.room_type === room_type &&
+      a.banquet_date === banquet_date &&
+      (a.status === 'Новая' || a.status === 'Банкет назначен')
+    );
+    if (conflict) {
+      errors.banquet_date = 'Это помещение уже занято на выбранную дату';
+    }
+  }
+
+  // Validate extra services
+  let services = [];
+  if (Array.isArray(extra_services)) {
+    services = extra_services.filter(s => EXTRA_SERVICES.some(es => es.id === s));
+  }
 
   if (Object.keys(errors).length > 0) return res.status(400).json({ errors });
 
   const appItem = {
     id: db.nextAppId++,
     user_id: req.session.userId,
-    room_type, banquet_date, payment_method,
+    room_type,
+    banquet_date,
+    payment_method,
+    extra_services: services,
+    guests_count: guests_count ? parseInt(guests_count) || null : null,
+    comment: comment ? String(comment).trim().slice(0, 500) : '',
     status: 'Новая',
     created_at: new Date().toISOString()
   };
@@ -182,7 +254,15 @@ app.get('/api/applications/my', requireAuth, (req, res) => {
     .filter(a => a.user_id === req.session.userId)
     .map(a => {
       const review = db.reviews.find(r => r.application_id === a.id);
-      return { ...a, review_text: review ? review.review_text : null, review_date: review ? review.created_at : null };
+      return {
+        ...a,
+        extra_services_names: (a.extra_services || []).map(id => {
+          const s = EXTRA_SERVICES.find(es => es.id === id);
+          return s ? s.name : id;
+        }),
+        review_text: review ? review.review_text : null,
+        review_date: review ? review.created_at : null
+      };
     })
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
@@ -222,7 +302,17 @@ app.get('/api/admin/applications', requireAdmin, (req, res) => {
 
   let list = db.applications.map(a => {
     const user = db.users.find(u => u.id === a.user_id) || {};
-    return { ...a, full_name: user.full_name || '', login: user.login || '', phone: user.phone || '', email: user.email || '' };
+    return {
+      ...a,
+      full_name: user.full_name || '',
+      login: user.login || '',
+      phone: user.phone || '',
+      email: user.email || '',
+      extra_services_names: (a.extra_services || []).map(id => {
+        const s = EXTRA_SERVICES.find(es => es.id === id);
+        return s ? s.name : id;
+      })
+    };
   });
 
   if (['Новая', 'Банкет назначен', 'Банкет завершен'].includes(status)) {
