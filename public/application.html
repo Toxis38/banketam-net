@@ -106,21 +106,17 @@
                     </div>
                     <div class="form-group">
                         <label>Дополнительные услуги</label>
-                        <div class="services-grid" id="services-list">
-                            <!-- filled by JS -->
-                        </div>
+                        <div class="services-grid" id="services-list"></div>
                     </div>
                     <div class="form-group">
                         <label for="comment">Комментарий (необязательно)</label>
                         <textarea id="comment" name="comment" rows="3" placeholder="Особые пожелания..."></textarea>
                     </div>
-
                     <div class="price-box" id="price-box">
                         <h3>Расчёт стоимости</h3>
                         <div id="price-details">Выберите помещение и количество гостей</div>
                         <div class="price-row price-total" id="price-total">Итого: 0 ₽</div>
                     </div>
-
                     <button type="submit" class="btn" id="submit-btn">Оформить заказ</button>
                 </form>
                 <div class="link-center">
@@ -175,6 +171,31 @@
             `).join('');
 
             updatePrice();
+            applyUrlPrefill();
+        }
+
+        function applyUrlPrefill() {
+            const params = new URLSearchParams(window.location.search);
+            const room = params.get('room');
+            const date = params.get('date');
+            const tables = params.get('tables');
+            if (room) {
+                const sel = document.getElementById('room_type');
+                sel.value = room;
+                sel.dispatchEvent(new Event('change'));
+            }
+            if (date) document.getElementById('banquet_date').value = date;
+            if (tables) {
+                const nums = tables.split(',').map(n => parseInt(n, 10)).filter(n => !isNaN(n));
+                setTimeout(() => {
+                    nums.forEach(n => selectedTables.add(n));
+                    document.querySelectorAll('.table-btn').forEach(btn => {
+                        const num = parseInt(btn.dataset.num, 10);
+                        if (nums.includes(num) && !btn.classList.contains('busy')) btn.classList.add('selected');
+                    });
+                }, 300);
+            }
+            setTimeout(updatePrice, 400);
         }
 
         document.getElementById('room_type').addEventListener('change', () => {
@@ -198,14 +219,10 @@
 
         document.getElementById('payment_method').addEventListener('change', function() {
             const cardForm = document.getElementById('card-form');
-            if (this.value === 'Оплата картой МИР') {
-                cardForm.classList.add('visible');
-            } else {
-                cardForm.classList.remove('visible');
-            }
+            if (this.value === 'Оплата картой МИР') cardForm.classList.add('visible');
+            else cardForm.classList.remove('visible');
         });
 
-        // Card number mask
         document.getElementById('card_number').addEventListener('input', function(e) {
             let v = e.target.value.replace(/\D/g, '').slice(0, 16);
             e.target.value = v.replace(/(\d{4})(?=\d)/g, '$1 ');
@@ -262,11 +279,8 @@
                 if (occ[date]) {
                     occ[date].forEach(item => {
                         if (item.room_type === roomId) {
-                            // whole room busy → all tables busy
                             const room = roomsData.find(r => r.id === roomId);
-                            if (room) {
-                                for (let i = 1; i <= room.tables; i++) busyTables.add(i);
-                            }
+                            if (room) for (let i = 1; i <= room.tables; i++) busyTables.add(i);
                             (item.tables || []).forEach(t => busyTables.add(t));
                         }
                     });
@@ -280,13 +294,11 @@
             const roomId = document.getElementById('room_type').value;
             const guests = document.getElementById('guests_count').value;
             const services = Array.from(document.querySelectorAll('input[name="extra_services"]:checked')).map(el => el.value);
-
             if (!roomId) {
                 document.getElementById('price-details').textContent = 'Выберите помещение и количество гостей';
                 document.getElementById('price-total').textContent = 'Итого: 0 ₽';
                 return;
             }
-
             try {
                 const res = await fetch('/api/calculate', {
                     method: 'POST',
@@ -296,7 +308,6 @@
                 const data = await res.json();
                 const b = data.breakdown;
                 if (!b) return;
-
                 let html = `
                     <div class="price-row"><span>Аренда помещения</span><span>${b.room_base.toLocaleString('ru-RU')} ₽</span></div>
                     <div class="price-row"><span>На гостей (${b.guests} × ${b.per_guest.toLocaleString('ru-RU')} ₽)</span><span>${b.guests_sum.toLocaleString('ru-RU')} ₽</span></div>
@@ -311,7 +322,6 @@
             }
         }
 
-        // Date mask
         document.getElementById('banquet_date').addEventListener('input', function(e) {
             let v = e.target.value.replace(/\D/g, '');
             if (v.length > 8) v = v.slice(0, 8);
