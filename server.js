@@ -44,18 +44,28 @@ app.use('/assets', express.static(path.join(__dirname, 'assets')));
 const ADMIN_LOGIN = 'Admin26';
 const ADMIN_PASSWORD = 'Demo20';
 
-const ROOMS = ['зал', 'ресторан', 'летняя веранда', 'закрытая веранда'];
-const PAYMENTS = ['Предоплата по QR-коду', 'Оплата картой МИР', 'Постоплата в офисе организации'];
-const EXTRA_SERVICES = [
-  { id: 'host', name: 'Ведущий' },
-  { id: 'chocolate_fountain', name: 'Шоколадный фонтан' },
-  { id: 'photographer', name: 'Фотограф' },
-  { id: 'music', name: 'Живая музыка / DJ' },
-  { id: 'decor', name: 'Декор и оформление' },
-  { id: 'cake', name: 'Торт на заказ' },
-  { id: 'fireworks', name: 'Фейерверк' },
-  { id: 'animator', name: 'Аниматор для детей' }
+const ROOMS = [
+  { id: 'зал', name: 'Зал', base_price: 50000, per_guest: 1500, capacity: 120, tables: 12 },
+  { id: 'ресторан', name: 'Ресторан', base_price: 40000, per_guest: 2000, capacity: 80, tables: 10 },
+  { id: 'летняя веранда', name: 'Летняя веранда', base_price: 25000, per_guest: 1200, capacity: 60, tables: 8 },
+  { id: 'закрытая веранда', name: 'Закрытая веранда', base_price: 30000, per_guest: 1400, capacity: 50, tables: 6 }
 ];
+
+const PAYMENTS = ['Предоплата по QR-коду', 'Оплата картой МИР', 'Постоплата в офисе организации'];
+
+const EXTRA_SERVICES = [
+  { id: 'host', name: 'Ведущий', price: 15000 },
+  { id: 'chocolate_fountain', name: 'Шоколадный фонтан', price: 8000 },
+  { id: 'photographer', name: 'Фотограф', price: 12000 },
+  { id: 'music', name: 'Живая музыка / DJ', price: 20000 },
+  { id: 'decor', name: 'Декор и оформление', price: 10000 },
+  { id: 'cake', name: 'Торт на заказ', price: 5000 },
+  { id: 'fireworks', name: 'Фейерверк', price: 15000 },
+  { id: 'animator', name: 'Аниматор для детей', price: 7000 }
+];
+
+// Тестовая карта для успешной оплаты (демо)
+const SUCCESS_CARD = '4111111111111111';
 
 function requireAuth(req, res, next) {
   if (!req.session.userId && !req.session.isAdmin) {
@@ -69,6 +79,18 @@ function requireAdmin(req, res, next) {
     return res.status(403).json({ error: 'Доступ запрещён' });
   }
   next();
+}
+
+function calcTotal(roomId, guests, serviceIds) {
+  const room = ROOMS.find(r => r.id === roomId);
+  if (!room) return 0;
+  const g = Math.max(1, parseInt(guests) || 1);
+  let total = room.base_price + room.per_guest * g;
+  (serviceIds || []).forEach(sid => {
+    const s = EXTRA_SERVICES.find(es => es.id === sid);
+    if (s) total += s.price;
+  });
+  return total;
 }
 
 // Register
@@ -155,9 +177,34 @@ app.get('/api/me', (req, res) => {
   });
 });
 
-// Public: list of available extra services
+// Public: rooms with prices
+app.get('/api/rooms', (req, res) => {
+  res.json({ rooms: ROOMS });
+});
+
+// Public: list of available extra services with prices
 app.get('/api/services', (req, res) => {
   res.json({ services: EXTRA_SERVICES });
+});
+
+// Calculate price (public helper)
+app.post('/api/calculate', (req, res) => {
+  const { room_type, guests_count, extra_services } = req.body;
+  const total = calcTotal(room_type, guests_count, extra_services || []);
+  const room = ROOMS.find(r => r.id === room_type);
+  res.json({
+    total,
+    breakdown: room ? {
+      room_base: room.base_price,
+      per_guest: room.per_guest,
+      guests: Math.max(1, parseInt(guests_count) || 1),
+      guests_sum: room.per_guest * Math.max(1, parseInt(guests_count) || 1),
+      services: (extra_services || []).map(id => {
+        const s = EXTRA_SERVICES.find(es => es.id === id);
+        return s ? { id: s.id, name: s.name, price: s.price } : null;
+      }).filter(Boolean)
+    } : null
+  });
 });
 
 // Public: occupancy (for guests — can view, cannot book)
@@ -169,7 +216,8 @@ app.get('/api/occupancy', (req, res) => {
     .map(a => ({
       room_type: a.room_type,
       banquet_date: a.banquet_date,
-      status: a.status
+      status: a.status,
+      tables: a.tables || []
     }));
 
   if (date && /^\d{2}\.\d{2}\.\d{4}$/.test(date)) {
@@ -182,21 +230,22 @@ app.get('/api/occupancy', (req, res) => {
     if (!byDate[item.banquet_date]) byDate[item.banquet_date] = [];
     byDate[item.banquet_date].push({
       room_type: item.room_type,
-      status: item.status
+      status: item.status,
+      tables: item.tables || []
     });
   });
 
-  res.json({ occupancy: byDate, rooms: ROOMS });
+  res.json({ occupancy: byDate, rooms: ROOMS.map(r => r.id), roomsFull: ROOMS });
 });
 
 // Create application (only registered users)
 app.post('/api/applications', requireAuth, (req, res) => {
   if (req.session.isAdmin) return res.status(403).json({ error: 'Администратор не может создавать заявки' });
 
-  const { room_type, banquet_date, payment_method, extra_services, guests_count, comment } = req.body;
+  const { room_type, banquet_date, payment_method, extra_services, guests_count, comment, tables, card_number, card_expiry, card_cvv, card_holder } = req.body;
   const errors = {};
 
-  if (!room_type || !ROOMS.includes(room_type)) errors.room_type = 'Выберите помещение';
+  if (!room_type || !ROOMS.find(r => r.id === room_type)) errors.room_type = 'Выберите помещение';
   if (!banquet_date) errors.banquet_date = 'Укажите дату';
   else if (!/^\d{2}\.\d{2}\.\d{4}$/.test(banquet_date)) errors.banquet_date = 'Дата в формате ДД.ММ.ГГГГ';
   else {
@@ -230,7 +279,44 @@ app.post('/api/applications', requireAuth, (req, res) => {
     services = extra_services.filter(s => EXTRA_SERVICES.some(es => es.id === s));
   }
 
+  // Tables (optional)
+  let selectedTables = [];
+  if (Array.isArray(tables)) {
+    const room = ROOMS.find(r => r.id === room_type);
+    const maxT = room ? room.tables : 0;
+    selectedTables = tables.filter(t => Number.isInteger(t) && t >= 1 && t <= maxT);
+  }
+
+  // Card payment validation
+  let payment_status = 'ожидает';
+  if (payment_method === 'Оплата картой МИР') {
+    const card = (card_number || '').replace(/\s/g, '');
+    if (!card || card.length < 16) {
+      errors.card_number = 'Введите номер карты (16 цифр)';
+    } else if (card !== SUCCESS_CARD) {
+      errors.card_number = 'Оплата отклонена. Для демо используйте карту 4111 1111 1111 1111';
+    }
+    if (!card_expiry || !/^\d{2}\/\d{2}$/.test(card_expiry)) {
+      errors.card_expiry = 'Срок в формате ММ/ГГ';
+    }
+    if (!card_cvv || !/^\d{3,4}$/.test(card_cvv)) {
+      errors.card_cvv = 'Введите CVV (3–4 цифры)';
+    }
+    if (!card_holder || card_holder.trim().length < 2) {
+      errors.card_holder = 'Укажите имя владельца карты';
+    }
+    if (!errors.card_number && !errors.card_expiry && !errors.card_cvv && !errors.card_holder) {
+      payment_status = 'оплачено';
+    }
+  } else if (payment_method === 'Предоплата по QR-коду') {
+    payment_status = 'ожидает QR';
+  } else {
+    payment_status = 'постоплата';
+  }
+
   if (Object.keys(errors).length > 0) return res.status(400).json({ errors });
+
+  const total = calcTotal(room_type, guests_count, services);
 
   const appItem = {
     id: db.nextAppId++,
@@ -238,15 +324,18 @@ app.post('/api/applications', requireAuth, (req, res) => {
     room_type,
     banquet_date,
     payment_method,
+    payment_status,
     extra_services: services,
     guests_count: guests_count ? parseInt(guests_count) || null : null,
+    tables: selectedTables,
+    total_amount: total,
     comment: comment ? String(comment).trim().slice(0, 500) : '',
     status: 'Новая',
     created_at: new Date().toISOString()
   };
   db.applications.push(appItem);
   saveDB(db);
-  res.json({ success: true, id: appItem.id });
+  res.json({ success: true, id: appItem.id, total_amount: total, payment_status });
 });
 
 // My applications

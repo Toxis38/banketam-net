@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Занятость помещений | Банкетам.Нет</title>
+    <title>Занятость и планировка | Банкетам.Нет</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="icon" href="/assets/assets/icon2.svg" type="image/svg+xml">
     <style>
@@ -12,9 +12,43 @@
         .room-badge { display: inline-block; padding: 6px 12px; border-radius: 20px; font-size: 13px; margin: 4px 4px 4px 0; }
         .room-busy { background: #f8d7da; color: #721c24; }
         .room-free { background: #d4edda; color: #155724; }
-        .legend { display: flex; gap: 16px; margin: 16px 0; font-size: 13px; }
+        .legend { display: flex; gap: 16px; margin: 16px 0; font-size: 13px; flex-wrap: wrap; }
         .legend span { display: flex; align-items: center; gap: 6px; }
         .legend i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
+        /* Floor plan */
+        .floor-plan { background: var(--white); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); margin-bottom: 20px; }
+        .floor-plan h2 { text-align: center; margin-bottom: 12px; }
+        .plan-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .zone {
+            border: 3px solid var(--peach); border-radius: 12px; padding: 12px; min-height: 120px;
+            background: var(--cream); cursor: pointer; transition: all 0.2s; position: relative;
+        }
+        .zone:hover { border-color: var(--gold); transform: scale(1.02); }
+        .zone.active { border-color: var(--crimson); box-shadow: 0 0 0 3px rgba(220,20,60,0.2); }
+        .zone.busy-zone { background: #fce4e6; border-color: #f5c6cb; }
+        .zone h4 { font-size: 14px; color: var(--crimson); margin-bottom: 4px; }
+        .zone .zone-price { font-size: 11px; color: var(--dark-green); }
+        .zone .zone-status { position: absolute; top: 8px; right: 8px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+        .zone .zone-status.free { background: #d4edda; color: #155724; }
+        .zone .zone-status.busy { background: #f8d7da; color: #721c24; }
+
+        .tables-view { margin-top: 16px; display: none; }
+        .tables-view.visible { display: block; }
+        .tables-view h3 { margin-bottom: 8px; }
+        .tables-map { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .table-seat {
+            aspect-ratio: 1; border-radius: 50%; border: 3px solid var(--peach);
+            background: var(--cream); display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 14px; cursor: pointer; transition: all 0.2s;
+            box-shadow: var(--shadow);
+        }
+        .table-seat:hover:not(.busy) { border-color: var(--gold); background: #fff8e7; transform: scale(1.08); }
+        .table-seat.selected { background: var(--gold); color: white; border-color: var(--gold); }
+        .table-seat.busy { background: #f8d7da; color: #721c24; border-color: #e99; cursor: not-allowed; opacity: 0.75; }
+        .plan-hint { font-size: 12px; color: var(--dark-green); text-align: center; margin-top: 10px; }
+        .book-from-plan { margin-top: 16px; text-align: center; display: none; }
+        .book-from-plan.visible { display: block; }
     </style>
 </head>
 <body>
@@ -30,20 +64,38 @@
     </header>
     <main class="main">
         <div class="container">
-            <h1>Занятость помещений</h1>
-            <p class="aux-text" style="text-align:center;margin-bottom:16px;">Гости могут смотреть, какие помещения заняты. Бронирование доступно только зарегистрированным пользователям.</p>
+            <h1>Занятость и планировка</h1>
+            <p class="aux-text" style="text-align:center;margin-bottom:16px;">Планировка ресторана, выбор столиков и занятость помещений по датам</p>
+
+            <div class="floor-plan">
+                <h2>Планировка</h2>
+                <div class="plan-grid" id="plan-grid">
+                    <!-- zones filled by JS -->
+                </div>
+                <p class="plan-hint">Нажмите на зону, чтобы увидеть столики</p>
+
+                <div class="tables-view" id="tables-view">
+                    <h3 id="tables-title">Столики</h3>
+                    <div class="tables-map" id="tables-map"></div>
+                    <p class="plan-hint" id="tables-hint">Зелёные/золотые — свободны, красные — заняты на выбранную дату</p>
+                    <div class="book-from-plan" id="book-from-plan">
+                        <a href="/application.html" class="btn" id="book-link">Оформить бронь выбранной зоны</a>
+                    </div>
+                </div>
+            </div>
 
             <div class="form-card">
                 <div class="form-group">
-                    <label for="filter-date">Фильтр по дате (необязательно)</label>
+                    <label for="filter-date">Дата для проверки занятости</label>
                     <input type="text" id="filter-date" placeholder="дд.мм.гггг" maxlength="10">
                 </div>
-                <button class="btn btn-secondary" onclick="loadOccupancy()">Показать</button>
+                <button class="btn btn-secondary" onclick="loadOccupancy()">Показать занятость</button>
             </div>
 
             <div class="legend">
                 <span><i style="background:#f8d7da;"></i> Занято</span>
                 <span><i style="background:#d4edda;"></i> Свободно</span>
+                <span><i style="background:var(--gold);"></i> Выбрано</span>
             </div>
 
             <div id="occupancy-list"></div>
@@ -60,6 +112,10 @@
     <script src="/js/main.js"></script>
     <script>
         let isLoggedIn = false;
+        let roomsFull = [];
+        let currentZone = null;
+        let selectedTables = new Set();
+        let occupancyData = {};
 
         checkAuth().then(auth => {
             updateNav(auth);
@@ -74,6 +130,7 @@
                     <div class="link-center"><a href="/login.html">Уже есть аккаунт? Войти</a></div>
                 </div>`;
             }
+            loadRoomsPlan();
             loadOccupancy();
         });
 
@@ -85,6 +142,95 @@
             e.target.value = v;
         });
 
+        async function loadRoomsPlan() {
+            const res = await fetch('/api/rooms');
+            const data = await res.json();
+            roomsFull = data.rooms || [];
+            renderPlan();
+        }
+
+        function getBusyRoomsForDate(date) {
+            const busy = new Set();
+            if (!date || !occupancyData[date]) return busy;
+            occupancyData[date].forEach(x => busy.add(x.room_type));
+            return busy;
+        }
+
+        function renderPlan() {
+            const date = document.getElementById('filter-date').value.trim();
+            const busy = getBusyRoomsForDate(date);
+            const grid = document.getElementById('plan-grid');
+            grid.innerHTML = roomsFull.map(r => {
+                const isBusy = busy.has(r.id);
+                return `<div class="zone ${isBusy ? 'busy-zone' : ''} ${currentZone === r.id ? 'active' : ''}" onclick="selectZone('${r.id}')">
+                    <span class="zone-status ${isBusy ? 'busy' : 'free'}">${isBusy ? 'Занято' : 'Свободно'}</span>
+                    <h4>${r.name}</h4>
+                    <div class="zone-price">от ${r.base_price.toLocaleString('ru-RU')} ₽</div>
+                    <div class="zone-price">${r.per_guest.toLocaleString('ru-RU')} ₽/гость · до ${r.capacity} чел.</div>
+                    <div class="zone-price">${r.tables} столиков</div>
+                </div>`;
+            }).join('');
+        }
+
+        function selectZone(roomId) {
+            currentZone = roomId;
+            selectedTables.clear();
+            renderPlan();
+            const room = roomsFull.find(r => r.id === roomId);
+            if (!room) return;
+
+            const view = document.getElementById('tables-view');
+            view.classList.add('visible');
+            document.getElementById('tables-title').textContent = 'Столики: ' + room.name;
+
+            const date = document.getElementById('filter-date').value.trim();
+            const busy = getBusyRoomsForDate(date);
+            const roomBusy = busy.has(roomId);
+
+            const map = document.getElementById('tables-map');
+            map.innerHTML = '';
+            for (let i = 1; i <= room.tables; i++) {
+                const el = document.createElement('div');
+                el.className = 'table-seat' + (roomBusy ? ' busy' : '');
+                el.textContent = i;
+                el.title = roomBusy ? 'Помещение занято' : 'Стол ' + i;
+                if (!roomBusy) {
+                    el.addEventListener('click', () => {
+                        if (selectedTables.has(i)) {
+                            selectedTables.delete(i);
+                            el.classList.remove('selected');
+                        } else {
+                            selectedTables.add(i);
+                            el.classList.add('selected');
+                        }
+                        updateBookLink();
+                    });
+                }
+                map.appendChild(el);
+            }
+
+            const bookBox = document.getElementById('book-from-plan');
+            if (isLoggedIn && !roomBusy) {
+                bookBox.classList.add('visible');
+                updateBookLink();
+            } else {
+                bookBox.classList.remove('visible');
+            }
+        }
+
+        function updateBookLink() {
+            const link = document.getElementById('book-link');
+            const params = new URLSearchParams();
+            if (currentZone) params.set('room', currentZone);
+            if (selectedTables.size) params.set('tables', Array.from(selectedTables).join(','));
+            const date = document.getElementById('filter-date').value.trim();
+            if (date) params.set('date', date);
+            link.href = '/application.html?' + params.toString();
+            link.textContent = selectedTables.size
+                ? `Оформить бронь (${selectedTables.size} стол.)`
+                : 'Оформить бронь выбранной зоны';
+        }
+
         async function loadOccupancy() {
             const date = document.getElementById('filter-date').value.trim();
             const params = date ? '?date=' + encodeURIComponent(date) : '';
@@ -92,9 +238,13 @@
             const data = await res.json();
             const list = document.getElementById('occupancy-list');
             const rooms = data.rooms || [];
-            const occ = data.occupancy || {};
+            occupancyData = data.occupancy || {};
+            if (data.roomsFull) roomsFull = data.roomsFull;
 
-            const dates = Object.keys(occ).sort((a, b) => {
+            renderPlan();
+            if (currentZone) selectZone(currentZone);
+
+            const dates = Object.keys(occupancyData).sort((a, b) => {
                 const [d1,m1,y1] = a.split('.').map(Number);
                 const [d2,m2,y2] = b.split('.').map(Number);
                 return new Date(y1,m1-1,d1) - new Date(y2,m2-1,d2);
@@ -111,7 +261,7 @@
             }
 
             list.innerHTML = dates.map(dt => {
-                const busyRooms = occ[dt].map(x => x.room_type);
+                const busyRooms = occupancyData[dt].map(x => x.room_type);
                 return `<div class="occ-date">
                     <h3>${dt}</h3>
                     ${rooms.map(r => {

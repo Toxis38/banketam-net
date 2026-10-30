@@ -8,10 +8,25 @@
     <link rel="icon" href="/assets/assets/icon2.svg" type="image/svg+xml">
     <style>
         .services-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
-        .service-item { display: flex; align-items: center; gap: 8px; background: var(--cream); padding: 10px; border-radius: 8px; border: 2px solid var(--peach); cursor: pointer; transition: border-color 0.2s; }
+        .service-item { display: flex; align-items: flex-start; gap: 8px; background: var(--cream); padding: 10px; border-radius: 8px; border: 2px solid var(--peach); cursor: pointer; transition: border-color 0.2s; }
         .service-item:has(input:checked) { border-color: var(--gold); background: #fff8e7; }
-        .service-item input { width: auto; margin: 0; }
-        .service-item label { margin: 0; cursor: pointer; font-size: 14px; }
+        .service-item input { width: auto; margin: 0; margin-top: 3px; }
+        .service-item label { margin: 0; cursor: pointer; font-size: 13px; line-height: 1.3; }
+        .service-price { display: block; color: var(--crimson); font-weight: 600; font-size: 12px; }
+        .price-box { background: #fff8e7; border: 2px solid var(--gold); border-radius: 12px; padding: 16px; margin: 16px 0; }
+        .price-box h3 { margin-bottom: 10px; color: var(--crimson); }
+        .price-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 14px; }
+        .price-total { font-size: 20px; font-weight: 700; color: var(--crimson); border-top: 2px solid var(--gold); padding-top: 10px; margin-top: 10px; }
+        .card-form { display: none; background: var(--cream); border-radius: 12px; padding: 16px; margin-top: 12px; border: 2px solid var(--peach); }
+        .card-form.visible { display: block; }
+        .card-hint { font-size: 12px; color: var(--dark-green); margin-bottom: 10px; background: #e8f5e9; padding: 8px; border-radius: 8px; }
+        .tables-section { margin-top: 12px; }
+        .tables-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+        .table-btn { aspect-ratio: 1; border: 2px solid var(--peach); border-radius: 10px; background: var(--cream); cursor: pointer; font-family: Oswald, sans-serif; font-size: 13px; font-weight: 600; transition: all 0.2s; }
+        .table-btn:hover { border-color: var(--gold); }
+        .table-btn.selected { background: var(--gold); color: white; border-color: var(--gold); }
+        .table-btn.busy { background: #f8d7da; color: #721c24; border-color: #f5c6cb; cursor: not-allowed; opacity: 0.7; }
+        .room-price-hint { font-size: 12px; color: var(--dark-green); margin-top: 4px; }
     </style>
 </head>
 <body>
@@ -35,17 +50,24 @@
                         <label for="room_type">Помещение</label>
                         <select id="room_type" name="room_type" required>
                             <option value="">— выберите —</option>
-                            <option value="зал">Зал</option>
-                            <option value="ресторан">Ресторан</option>
-                            <option value="летняя веранда">Летняя веранда</option>
-                            <option value="закрытая веранда">Закрытая веранда</option>
                         </select>
+                        <div class="room-price-hint" id="room-price-hint"></div>
                         <span class="error" id="err-room_type"></span>
                     </div>
                     <div class="form-group">
                         <label for="banquet_date">Дата банкета (ДД.ММ.ГГГГ)</label>
                         <input type="text" id="banquet_date" name="banquet_date" required placeholder="дд.мм.гггг" maxlength="10">
                         <span class="error" id="err-banquet_date"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="guests_count">Количество гостей</label>
+                        <input type="number" id="guests_count" name="guests_count" min="1" max="500" value="20" placeholder="например 50" required>
+                        <span class="error" id="err-guests_count"></span>
+                    </div>
+                    <div class="form-group tables-section" id="tables-section" style="display:none;">
+                        <label>Выбор столиков (необязательно)</label>
+                        <p class="aux-text">Нажмите на свободный столик, чтобы выбрать</p>
+                        <div class="tables-grid" id="tables-grid"></div>
                     </div>
                     <div class="form-group">
                         <label for="payment_method">Способ оплаты</label>
@@ -57,9 +79,30 @@
                         </select>
                         <span class="error" id="err-payment_method"></span>
                     </div>
-                    <div class="form-group">
-                        <label for="guests_count">Количество гостей (необязательно)</label>
-                        <input type="number" id="guests_count" name="guests_count" min="1" max="500" placeholder="например 50">
+                    <div class="card-form" id="card-form">
+                        <div class="card-hint">💳 Для успешной демо-оплаты используйте карту: <strong>4111 1111 1111 1111</strong><br>Срок: любой (ММ/ГГ), CVV: любые 3 цифры</div>
+                        <div class="form-group">
+                            <label for="card_number">Номер карты</label>
+                            <input type="text" id="card_number" placeholder="0000 0000 0000 0000" maxlength="19">
+                            <span class="error" id="err-card_number"></span>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                            <div class="form-group">
+                                <label for="card_expiry">Срок (ММ/ГГ)</label>
+                                <input type="text" id="card_expiry" placeholder="12/28" maxlength="5">
+                                <span class="error" id="err-card_expiry"></span>
+                            </div>
+                            <div class="form-group">
+                                <label for="card_cvv">CVV</label>
+                                <input type="text" id="card_cvv" placeholder="123" maxlength="4">
+                                <span class="error" id="err-card_cvv"></span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="card_holder">Имя на карте</label>
+                            <input type="text" id="card_holder" placeholder="IVAN IVANOV">
+                            <span class="error" id="err-card_holder"></span>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label>Дополнительные услуги</label>
@@ -71,7 +114,14 @@
                         <label for="comment">Комментарий (необязательно)</label>
                         <textarea id="comment" name="comment" rows="3" placeholder="Особые пожелания..."></textarea>
                     </div>
-                    <button type="submit" class="btn">Отправить заявку</button>
+
+                    <div class="price-box" id="price-box">
+                        <h3>Расчёт стоимости</h3>
+                        <div id="price-details">Выберите помещение и количество гостей</div>
+                        <div class="price-row price-total" id="price-total">Итого: 0 ₽</div>
+                    </div>
+
+                    <button type="submit" class="btn" id="submit-btn">Оформить заказ</button>
                 </form>
                 <div class="link-center">
                     <a href="/cabinet.html">← Вернуться в кабинет</a>
@@ -87,25 +137,178 @@
     </footer>
     <script src="/js/main.js"></script>
     <script>
+        let roomsData = [];
+        let servicesData = [];
+        let selectedTables = new Set();
+        let busyTables = new Set();
+
         checkAuth().then(auth => {
             if (!auth.loggedIn || auth.isAdmin) {
                 location.href = auth.isAdmin ? '/admin.html' : '/login.html';
                 return;
             }
             updateNav(auth);
-            loadServices();
+            loadRoomsAndServices();
         });
 
-        async function loadServices() {
-            const res = await fetch('/api/services');
-            const data = await res.json();
+        async function loadRoomsAndServices() {
+            const [rRes, sRes] = await Promise.all([fetch('/api/rooms'), fetch('/api/services')]);
+            const rData = await rRes.json();
+            const sData = await sRes.json();
+            roomsData = rData.rooms || [];
+            servicesData = sData.services || [];
+
+            const sel = document.getElementById('room_type');
+            roomsData.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r.id;
+                opt.textContent = `${r.name} — от ${r.base_price.toLocaleString('ru-RU')} ₽ + ${r.per_guest.toLocaleString('ru-RU')} ₽/гость`;
+                sel.appendChild(opt);
+            });
+
             const container = document.getElementById('services-list');
-            container.innerHTML = data.services.map(s => `
+            container.innerHTML = servicesData.map(s => `
                 <div class="service-item">
-                    <input type="checkbox" id="svc-${s.id}" name="extra_services" value="${s.id}">
-                    <label for="svc-${s.id}">${s.name}</label>
+                    <input type="checkbox" id="svc-${s.id}" name="extra_services" value="${s.id}" onchange="updatePrice()">
+                    <label for="svc-${s.id}">${s.name}<span class="service-price">${s.price.toLocaleString('ru-RU')} ₽</span></label>
                 </div>
             `).join('');
+
+            updatePrice();
+        }
+
+        document.getElementById('room_type').addEventListener('change', () => {
+            const room = roomsData.find(r => r.id === document.getElementById('room_type').value);
+            const hint = document.getElementById('room-price-hint');
+            if (room) {
+                hint.textContent = `Аренда: ${room.base_price.toLocaleString('ru-RU')} ₽ + ${room.per_guest.toLocaleString('ru-RU')} ₽ за каждого гостя · вместимость до ${room.capacity}`;
+                renderTables(room);
+            } else {
+                hint.textContent = '';
+                document.getElementById('tables-section').style.display = 'none';
+            }
+            selectedTables.clear();
+            updatePrice();
+            loadBusyTables();
+        });
+
+        document.getElementById('guests_count').addEventListener('input', updatePrice);
+        document.getElementById('banquet_date').addEventListener('change', loadBusyTables);
+        document.getElementById('banquet_date').addEventListener('blur', loadBusyTables);
+
+        document.getElementById('payment_method').addEventListener('change', function() {
+            const cardForm = document.getElementById('card-form');
+            if (this.value === 'Оплата картой МИР') {
+                cardForm.classList.add('visible');
+            } else {
+                cardForm.classList.remove('visible');
+            }
+        });
+
+        // Card number mask
+        document.getElementById('card_number').addEventListener('input', function(e) {
+            let v = e.target.value.replace(/\D/g, '').slice(0, 16);
+            e.target.value = v.replace(/(\d{4})(?=\d)/g, '$1 ');
+        });
+        document.getElementById('card_expiry').addEventListener('input', function(e) {
+            let v = e.target.value.replace(/\D/g, '').slice(0, 4);
+            if (v.length >= 3) v = v.slice(0, 2) + '/' + v.slice(2);
+            e.target.value = v;
+        });
+
+        function renderTables(room) {
+            const section = document.getElementById('tables-section');
+            const grid = document.getElementById('tables-grid');
+            section.style.display = 'block';
+            grid.innerHTML = '';
+            for (let i = 1; i <= room.tables; i++) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'table-btn';
+                btn.textContent = 'Стол ' + i;
+                btn.dataset.num = i;
+                if (busyTables.has(i)) {
+                    btn.classList.add('busy');
+                    btn.disabled = true;
+                    btn.title = 'Занят';
+                } else {
+                    btn.addEventListener('click', () => {
+                        if (selectedTables.has(i)) {
+                            selectedTables.delete(i);
+                            btn.classList.remove('selected');
+                        } else {
+                            selectedTables.add(i);
+                            btn.classList.add('selected');
+                        }
+                    });
+                }
+                grid.appendChild(btn);
+            }
+        }
+
+        async function loadBusyTables() {
+            const roomId = document.getElementById('room_type').value;
+            const date = document.getElementById('banquet_date').value.trim();
+            busyTables.clear();
+            if (!roomId || !date || !/^\d{2}\.\d{2}\.\d{4}$/.test(date)) {
+                const room = roomsData.find(r => r.id === roomId);
+                if (room) renderTables(room);
+                return;
+            }
+            try {
+                const res = await fetch('/api/occupancy?date=' + encodeURIComponent(date));
+                const data = await res.json();
+                const occ = data.occupancy || {};
+                if (occ[date]) {
+                    occ[date].forEach(item => {
+                        if (item.room_type === roomId) {
+                            // whole room busy → all tables busy
+                            const room = roomsData.find(r => r.id === roomId);
+                            if (room) {
+                                for (let i = 1; i <= room.tables; i++) busyTables.add(i);
+                            }
+                            (item.tables || []).forEach(t => busyTables.add(t));
+                        }
+                    });
+                }
+            } catch (e) {}
+            const room = roomsData.find(r => r.id === roomId);
+            if (room) renderTables(room);
+        }
+
+        async function updatePrice() {
+            const roomId = document.getElementById('room_type').value;
+            const guests = document.getElementById('guests_count').value;
+            const services = Array.from(document.querySelectorAll('input[name="extra_services"]:checked')).map(el => el.value);
+
+            if (!roomId) {
+                document.getElementById('price-details').textContent = 'Выберите помещение и количество гостей';
+                document.getElementById('price-total').textContent = 'Итого: 0 ₽';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/calculate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_type: roomId, guests_count: guests, extra_services: services })
+                });
+                const data = await res.json();
+                const b = data.breakdown;
+                if (!b) return;
+
+                let html = `
+                    <div class="price-row"><span>Аренда помещения</span><span>${b.room_base.toLocaleString('ru-RU')} ₽</span></div>
+                    <div class="price-row"><span>На гостей (${b.guests} × ${b.per_guest.toLocaleString('ru-RU')} ₽)</span><span>${b.guests_sum.toLocaleString('ru-RU')} ₽</span></div>
+                `;
+                b.services.forEach(s => {
+                    html += `<div class="price-row"><span>${s.name}</span><span>${s.price.toLocaleString('ru-RU')} ₽</span></div>`;
+                });
+                document.getElementById('price-details').innerHTML = html;
+                document.getElementById('price-total').textContent = 'Итого: ' + data.total.toLocaleString('ru-RU') + ' ₽';
+            } catch (e) {
+                document.getElementById('price-details').textContent = 'Ошибка расчёта';
+            }
         }
 
         // Date mask
@@ -124,15 +327,28 @@
             document.querySelectorAll('select, input').forEach(el => el.classList.remove('error-input'));
 
             const services = Array.from(document.querySelectorAll('input[name="extra_services"]:checked')).map(el => el.value);
+            const payment = document.getElementById('payment_method').value;
 
             const payload = {
                 room_type: document.getElementById('room_type').value,
                 banquet_date: document.getElementById('banquet_date').value.trim(),
-                payment_method: document.getElementById('payment_method').value,
+                payment_method: payment,
                 guests_count: document.getElementById('guests_count').value,
                 extra_services: services,
+                tables: Array.from(selectedTables),
                 comment: document.getElementById('comment').value.trim()
             };
+
+            if (payment === 'Оплата картой МИР') {
+                payload.card_number = document.getElementById('card_number').value.replace(/\s/g, '');
+                payload.card_expiry = document.getElementById('card_expiry').value.trim();
+                payload.card_cvv = document.getElementById('card_cvv').value.trim();
+                payload.card_holder = document.getElementById('card_holder').value.trim();
+            }
+
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = true;
+            btn.textContent = 'Обработка...';
 
             try {
                 const res = await fetch('/api/applications', {
@@ -142,8 +358,9 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    alertEl.innerHTML = '<div class="alert alert-success">Заявка успешно создана! Перенаправляем...</div>';
-                    setTimeout(() => location.href = '/cabinet.html', 1500);
+                    const paid = data.payment_status === 'оплачено';
+                    alertEl.innerHTML = `<div class="alert alert-success">Заказ #${data.id} оформлен!${paid ? ' Оплата прошла успешно.' : ''} Сумма: ${data.total_amount.toLocaleString('ru-RU')} ₽. Перенаправляем...</div>`;
+                    setTimeout(() => location.href = '/cabinet.html', 2000);
                 } else if (data.errors) {
                     for (const [field, msg] of Object.entries(data.errors)) {
                         const errEl = document.getElementById('err-' + field);
@@ -151,11 +368,20 @@
                         if (errEl) errEl.textContent = msg;
                         if (inputEl) inputEl.classList.add('error-input');
                     }
+                    if (data.errors.card_number || data.errors.card_expiry || data.errors.card_cvv || data.errors.card_holder) {
+                        document.getElementById('card-form').classList.add('visible');
+                    }
+                    btn.disabled = false;
+                    btn.textContent = 'Оформить заказ';
                 } else {
                     alertEl.innerHTML = `<div class="alert alert-error">${data.error || 'Ошибка'}</div>`;
+                    btn.disabled = false;
+                    btn.textContent = 'Оформить заказ';
                 }
             } catch {
                 alertEl.innerHTML = '<div class="alert alert-error">Ошибка соединения</div>';
+                btn.disabled = false;
+                btn.textContent = 'Оформить заказ';
             }
         });
     </script>
