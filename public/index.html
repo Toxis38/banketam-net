@@ -37,11 +37,8 @@
                     <div class="slider-dots"></div>
                 </div>
 
-                <div class="features">
-                    <div class="feature"><h3>Зал</h3><p class="aux-text">Просторный зал для больших компаний</p></div>
-                    <div class="feature"><h3>Ресторан</h3><p class="aux-text">Уютный ресторан с изысканной кухней</p></div>
-                    <div class="feature"><h3>Летняя веранда</h3><p class="aux-text">Открытое пространство на свежем воздухе</p></div>
-                    <div class="feature"><h3>Закрытая веранда</h3><p class="aux-text">Защищённая веранда в любую погоду</p></div>
+                <div class="features" id="features-rooms">
+                    <!-- filled by JS with prices -->
                 </div>
 
                 <div id="hero-actions"></div>
@@ -49,15 +46,8 @@
 
             <div class="form-card" style="margin-top: 24px;">
                 <h2>Дополнительные услуги</h2>
-                <ul style="list-style: none; padding-left: 0;">
-                    <li style="margin-bottom: 6px;">✓ Ведущий</li>
-                    <li style="margin-bottom: 6px;">✓ Шоколадный фонтан</li>
-                    <li style="margin-bottom: 6px;">✓ Фотограф</li>
-                    <li style="margin-bottom: 6px;">✓ Живая музыка / DJ</li>
-                    <li style="margin-bottom: 6px;">✓ Декор и оформление</li>
-                    <li style="margin-bottom: 6px;">✓ Торт на заказ</li>
-                    <li style="margin-bottom: 6px;">✓ Фейерверк</li>
-                    <li>✓ Аниматор для детей</li>
+                <ul id="services-prices" style="list-style: none; padding-left: 0;">
+                    <!-- filled by JS -->
                 </ul>
             </div>
 
@@ -70,8 +60,8 @@
                 </ul>
             </div>
 
-            <div style="margin-top: 16px; text-align: center;">
-                <a href="/occupancy.html" class="btn btn-secondary">Посмотреть занятость помещений</a>
+            <div style="margin-top: 16px; text-align: center; display: flex; flex-direction: column; gap: 10px;">
+                <a href="/occupancy.html" class="btn btn-secondary">Планировка и занятость</a>
             </div>
         </div>
     </main>
@@ -95,6 +85,21 @@
             } else {
                 el.innerHTML = '<a href="/register.html" class="btn">Зарегистрироваться</a><div class="link-center"><a href="/login.html">Уже есть аккаунт? Войти</a></div>';
             }
+        });
+
+        Promise.all([fetch('/api/rooms'), fetch('/api/services')]).then(async ([rRes, sRes]) => {
+            const rData = await rRes.json();
+            const sData = await sRes.json();
+            document.getElementById('features-rooms').innerHTML = (rData.rooms || []).map(r => `
+                <div class="feature">
+                    <h3>${r.name}</h3>
+                    <p class="aux-text">от ${r.base_price.toLocaleString('ru-RU')} ₽ + ${r.per_guest.toLocaleString('ru-RU')} ₽/гость</p>
+                    <p class="aux-text">до ${r.capacity} гостей · ${r.tables} столиков</p>
+                </div>
+            `).join('');
+            document.getElementById('services-prices').innerHTML = (sData.services || []).map(s =>
+                `<li style="margin-bottom: 6px; display:flex; justify-content:space-between;"><span>✓ ${s.name}</span><strong style="color:var(--crimson)">${s.price.toLocaleString('ru-RU')} ₽</strong></li>`
+            ).join('');
         });
     </script>
 </body>

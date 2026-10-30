@@ -88,6 +88,12 @@
                 const statusClass = a.status === 'Новая' ? 'status-new' : a.status === 'Банкет назначен' ? 'status-assigned' : 'status-completed';
                 const services = (a.extra_services_names || []).length
                     ? `<p class="aux-text">Доп. услуги: ${a.extra_services_names.join(', ')}</p>` : '';
+                const tables = (a.tables && a.tables.length)
+                    ? `<p class="aux-text">Столики: ${a.tables.join(', ')}</p>` : '';
+                const total = a.total_amount != null
+                    ? `<p><strong style="color:var(--crimson)">Итого: ${Number(a.total_amount).toLocaleString('ru-RU')} ₽</strong></p>` : '';
+                const payStatus = a.payment_status
+                    ? `<p class="aux-text">Статус оплаты: ${a.payment_status}</p>` : '';
                 return `
                 <div class="card">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -99,8 +105,11 @@
                     <p>Помещение: <strong>${a.room_type}</strong></p>
                     <p>Дата банкета: <strong>${a.banquet_date}</strong></p>
                     <p>Оплата: ${a.payment_method}</p>
+                    ${payStatus}
                     ${a.guests_count ? `<p>Гостей: ${a.guests_count}</p>` : ''}
+                    ${tables}
                     ${services}
+                    ${total}
                     ${a.comment ? `<p class="aux-text">Комментарий: ${a.comment}</p>` : ''}
                     <p class="aux-text">Создана: ${new Date(a.created_at).toLocaleString('ru-RU')}</p>
                     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
