@@ -36,7 +36,10 @@ app.use(session({
   saveUninitialized: false,
   cookie: { maxAge: 24 * 60 * 60 * 1000 }
 }));
+
+// Статика: public + assets (логотип и фото)
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 const ADMIN_LOGIN = 'Admin26';
 const ADMIN_PASSWORD = 'Demo20';
